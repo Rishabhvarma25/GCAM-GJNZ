@@ -64,6 +64,7 @@ prj_powerAfter2025 <- loadProject(proj = "GJNZ_powerafter2025.dat")
 prj_powerBefore2025 <- loadProject(proj = "GJNZ_poweruntil2025.dat")
 prj_demandUntil2020 <- loadProject(proj = "GJNZ_demanduntil2020.dat")
 prj <- loadProject(proj = "GJNZ_BAU_02July.dat")
+
 ```
 
 # Socioeconomics
@@ -88,7 +89,7 @@ ggplot(socioeco %>% filter(region %in% c("GJ", "TN", "KA", "MH"), category == "P
   labs(y = "Population (Millions)", x = "")
 
 
-ggplot(socioeco %>% filter(region %in% c("GJ", "TN", "KA", "MH"), category == "GDPPC", year > 2005, year < 2075), 
+ggplot(socioeco %>% filter(region %in% c("GJ", "TN", "KA", "MH"), category == "GDPPC", year > 2005, year < 2075,scenario=="Revised_BAU"), 
        mapping = aes(x = year, y = value * 1000*1.98, color = region)) +
   geom_line(data = socioeco %>% filter(region %in% c("GJ", "TN", "KA", "MH"), category == "GDPPC", year > 2005, year <= 2020), 
             aes(x = year, y = value * 1000 * 1.98, color = region), 
@@ -124,7 +125,6 @@ emi <- getQuery(prj,query = "CO2 emissions by aggregate sector") %>%
   ungroup() %>% mutate(scenario="NZ70")
 
 
-
 # emi2 <- getQuery(prj_powerAfter2025,query = 'CO2 emissions by aggregate sector') %>% 
 #       filter(region=="GJ",year>2025) %>% 
 #   group_by(scenario, year) %>% 
@@ -148,6 +148,17 @@ ggsave("output_plots/emissions.png",
   width = 8, height = 6
 )
 
+
+#Type 2
+ggplot()+
+geom_line(data = emi %>% filter(year>2005),mapping=aes(x = year,y=value*3.67,color=scenario,linetype=sector,group=interaction(sector,scenario)))+
+  facet_wrap(~sector,scales = "free")+
+  theme_pander(boxes = T,base_size = 14)+
+  scale_fill_aaas()+
+  labs(y="Emissions(MTCO2)",x="")+
+   geom_label(data = first_last_years, 
+             aes(x = year, y = total_value, label = round(total_value, 0)),
+             vjust = -0.2, hjust = 0.5, size = 3, fill = "white", color = "black")
 
   
 a <- ggplot(emi %>% filter(year == 2020),mapping = 
@@ -183,6 +194,27 @@ ggsave("output_plots/emissions_share.png",
 )
 
 ```
+
+# Emission Intensity
+```{r}
+tot_emissions <-  getQuery(prj,query = 'CO2 emissions by aggregate sector') %>% 
+      filter(region=="GJ",year >2000, year < 2075,) %>% 
+  group_by(scenario, year) %>% 
+  mutate(percent = value / sum(value), percent = percent * 100) %>% 
+  ungroup() %>% 
+  group_by(scenario, year) %>%
+  summarize(total_value = sum(value * 3.67)) 
+#%>% 
+ # filter(scenario=="Revised_NZ70")
+
+gdp_gj <- getQuery(prj,"GDP by region") %>% mutate(category="GDP") %>% filter(region=="GJ",year > 2000)                                                             #   scenario=="Revised_NZ70",
+
+
+
+ei <- left_join(tot_emissions,gdp_gj,by=c("year","scenario")) %>% 
+  mutate(ei=total_value/value,year=as.factor(year))
+```
+
 
 # Electricity
 ```{r}
@@ -637,10 +669,11 @@ ggsave("output_plots/building_floorspace.png",
 ```{r}
 industry <- getQuery(prj,"final energy consumption by sector and fuel") %>% 
   filter(region=="GJ") %>% 
-  filter(!str_detect(sector, "trn|resid|comm")) %>% 
+  filter(!str_detect(sector, "trn|resid|comm|fsuse")) %>% 
   group_by(scenario,input,year) %>% 
   summarise(value=sum(value)) %>% 
-  ungroup() %>% mutate(scenario="NZ-Ind-2070_GJ-2050_ROW-2080") %>% 
+
+  ungroup() %>% 
   group_by(year) %>% 
    mutate(percent = value / sum(value), percent = percent * 100) %>% 
    ungroup()
@@ -669,8 +702,7 @@ ggsave("output_plots/industry_fuel.png",
   width = 8, height = 6
 )
 
-
-a <- ggplot(industry %>% filter(year == 2020),mapping = 
+a <- ggplot(industry %>% filter(year == 2020,scenario=="Revised_BAU"),mapping = 
        aes(x = "", y = percent, fill = input, group = scenario)) +
   geom_col(color = "white", size = 1) +
   geom_text(data = . %>% filter(percent > 3),
@@ -684,7 +716,7 @@ a <- ggplot(industry %>% filter(year == 2020),mapping =
 
 
 
-b <- ggplot(industry %>% filter(year == 2050),mapping = 
+b <- ggplot(industry %>% filter(year == 2070,scenario=="Revised_BAU"),mapping = 
        aes(x = "", y = percent, fill = input, group = scenario)) +
   geom_col(color = "white", size = 1) +
   geom_text(data = . %>% filter(percent > 3),
