@@ -52,7 +52,7 @@ library(ggrepel) # for geom label repel
 path <- 'C:/Users/Rishabh/Documents/GitHub/NS-GJNZ_state_model/Gujarat_State_Modelling/GCAM_State/output/' # change this path to where database is locally
 conn <- localDBConn(path, 'database_basexdb')
 queryFileInput <- 'queries.xml'
-prj <- addScenario(conn, proj = 'GJNZ_NZ50_02July.dat', scenario =  c('NZ50_Trn_prcElas0.25'), queryFile = queryFileInput,warn.empty = T,clobber = T) # This command runs queries from queryFileInput against the database, extract the results for two scenario called and write the results to a file called "GJNZ.dat". 
+prj <- addScenario(conn, proj = 'GJNZ_NZ70_LIFE.dat', scenario =  c('NZ70_LIFE'), queryFile = queryFileInput,warn.empty = T,clobber = T) # This command runs queries from queryFileInput against the database, extract the results for two scenario called and write the results to a file called "GJNZ.dat". 
 scenarios <- listScenarios(prj)# to check which scenarios have been installed
 queries <- listQueries(prj)# to check all queries
                    
@@ -63,7 +63,7 @@ prj_old <- loadProject('GJNZ2.dat') #Old supply demand file from Jan
 prj_powerAfter2025 <- loadProject(proj = "GJNZ_powerafter2025.dat")
 prj_powerBefore2025 <- loadProject(proj = "GJNZ_poweruntil2025.dat")
 prj_demandUntil2020 <- loadProject(proj = "GJNZ_demanduntil2020.dat")
-prj <- loadProject(proj = "GJNZ_BAU_02July.dat")
+prj <- loadProject(proj = "NZ70_LIFE.dat")
 
 ```
 
@@ -118,10 +118,13 @@ ggplot(socioeco %>% filter(region %in% c("GJ", "TN", "KA", "MH"), category == "G
 #   mutate(percent = value / sum(value), percent = percent * 100) %>% 
 #   ungroup()
 
+##change mutate for NZ#################################################################
 emi <- getQuery(prj,query = "CO2 emissions by aggregate sector") %>% 
       filter(region=="GJ",year >2015, year < 2075) %>% 
   group_by(scenario, year) %>% 
-  mutate(percent = value / sum(value), percent = percent * 100) %>% 
+  mutate(
+          value = ifelse(sector == "Power" & year <= 2040, value + 2.21452721, value),
+          percent = value / sum(value), percent = percent * 100) %>% 
   ungroup() %>% mutate(scenario="NZ70")
 
 
@@ -266,7 +269,9 @@ ggsave("output_plots/elec_demand_share.png",
 ##################################
 
 elec_gen <- getQuery(prj,"elec gen by subsector") %>% 
-  filter(region=="GJ") %>% mutate(scenario="NZ70") 
+  filter(region=="GJ") %>% 
+  mutate(value = ifelse(subsector == "gas" & year >= 2020, pmax(value - 0.04192, 0), value), 
+         scenario = "NZ70")
 
 # elec_gen2 <- getQuery(prj_powerAfter2025,"elec gen by subsector") %>% 
 #   filter(region=="GJ",year>2025)%>% mutate(scenario="BAU_GJ")
